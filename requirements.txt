@@ -39,7 +39,7 @@ rich
 peft
 trl
 scipy
-huggingface_hub[hf_xet]
+# huggingface_hub[hf_xet]
 apscheduler
 fastapi
 uvicorn
