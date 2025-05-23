@@ -41,6 +41,11 @@ def clone_with_lfs(repo_url, repo_dir_name, target_dir):
             shutil.rmtree(target_dir)
         shutil.move(models_src, target_dir)
         print(f"✅ Đã move {models_src} ➜ {target_dir}")
+
+        # ✅ Liệt kê nội dung thư mục
+        print(f"📂 Nội dung thư mục {target_dir}:")
+        for f in os.listdir(target_dir):
+            print("  -", f)
     else:
         print(f"[!] ❌ Không tìm thấy thư mục 'Models' trong repo {repo_dir_name}")
 
