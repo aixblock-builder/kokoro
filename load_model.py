@@ -17,48 +17,62 @@ def install_git_lfs():
             subprocess.run(['brew', 'install', 'git-lfs'], check=True)
             subprocess.run(['git', 'lfs', 'install'], check=True)
         else:
-            raise EnvironmentError("⚠️ Chưa hỗ trợ cài đặt git-lfs trên hệ điều hành này.")
-        
-base_dir = os.getcwd()
-models_src = os.path.join(base_dir, "Models")
-    
-def clone_with_lfs(repo_url, repo_dir_name, target_dir):
-    # Dọn thư mục repo nếu tồn tại
+            raise EnvironmentError("⚠️ Không hỗ trợ OS này.")
+
+def clone_with_lfs(repo_url, repo_dir_name, models_base_dir):
     if os.path.exists(repo_dir_name):
-        print(f"🧹 Đang xóa thư mục cũ: {repo_dir_name}")
+        print(f"🧹 Xóa repo cũ: {repo_dir_name}")
         shutil.rmtree(repo_dir_name)
 
-    # Clone repo
     print(f"🔄 Cloning {repo_url}...")
     subprocess.run(["git", "clone", repo_url], check=True)
 
-    # LFS pull
-    print(f"📦 Đang pull LFS trong {repo_dir_name}...")
+    print(f"📦 Pull LFS trong {repo_dir_name}...")
     subprocess.run(["git", "lfs", "pull"], cwd=repo_dir_name, check=True)
 
-    # Move Models
     models_src = os.path.join(repo_dir_name, "Models")
-    shutil.move(models_src, target_dir)
-    print(f"✅ Đã move {models_src} ➜ {target_dir}")
+    target_subdir = os.path.join(models_base_dir, repo_dir_name)
 
-    # ✅ Liệt kê nội dung thư mục
-    print(f"📂 Nội dung thư mục {target_dir}:")
-    for f in os.listdir(target_dir):
-        print("  -", f)
-    
+    if os.path.exists(models_src):
+        shutil.move(models_src, target_subdir)
+        print(f"✅ Moved {models_src} ➜ {target_subdir}")
+    else:
+        print(f"[!] ❌ Không có thư mục 'Models' trong repo {repo_dir_name}")
 
-# Gọi hàm
+def print_models_tree(models_dir):
+    print(f"\n📂 Nội dung thư mục {models_dir}:")
+    for root, dirs, files in os.walk(models_dir):
+        level = root.replace(models_dir, '').count(os.sep)
+        indent = '    ' * level
+        print(f"{indent}- 📁 {os.path.basename(root)}")
+        sub_indent = '    ' * (level + 1)
+        for f in files:
+            print(f"{sub_indent}- 📄 {f}")
+
+# ---------- Main script ----------
 install_git_lfs()
 
+MODELS_DIR = "Models"
+
+# Xoá toàn bộ Models nếu đã tồn tại
+if os.path.exists(MODELS_DIR):
+    print(f"🧹 Xóa thư mục cũ: {MODELS_DIR}")
+    shutil.rmtree(MODELS_DIR)
+
+os.makedirs(MODELS_DIR, exist_ok=True)
+
+# Clone & move
 clone_with_lfs(
     "https://huggingface.co/yl4579/StyleTTS2-LibriTTS",
     "StyleTTS2-LibriTTS",
-    "Models"
+    MODELS_DIR
 )
 
-# Nếu muốn ghi đè Models bằng bộ khác:
 clone_with_lfs(
     "https://huggingface.co/yl4579/StyleTTS2-LJSpeech",
     "StyleTTS2-LJSpeech",
-    "Models"
+    MODELS_DIR
 )
+
+# In toàn bộ nội dung Models
+print_models_tree(MODELS_DIR)
