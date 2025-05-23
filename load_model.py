@@ -31,11 +31,11 @@ def clone_with_lfs(repo_url, repo_dir_name, models_base_dir):
     subprocess.run(["git", "lfs", "pull"], cwd=repo_dir_name, check=True)
 
     models_src = os.path.join(repo_dir_name, "Models")
-    target_subdir = os.path.join(models_base_dir, repo_dir_name)
+    # target_subdir = os.path.join(models_base_dir, repo_dir_name)
 
     if os.path.exists(models_src):
-        shutil.move(models_src, target_subdir)
-        print(f"✅ Moved {models_src} ➜ {target_subdir}")
+        shutil.move(models_src, models_base_dir)
+        print(f"✅ Moved {models_src} ➜ {models_base_dir}")
     else:
         print(f"[!] ❌ Không có thư mục 'Models' trong repo {repo_dir_name}")
 
