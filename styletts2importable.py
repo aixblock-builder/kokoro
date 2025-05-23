@@ -61,7 +61,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 import phonemizer
 global_phonemizer = phonemizer.backend.EspeakBackend(language='en-us', preserve_punctuation=True,  with_stress=True)
 
-config = yaml.safe_load(open("Models/LibriTTS/config.yml"))
+config = yaml.safe_load(open("Models/StyleTTS2-LibriTTS/LibriTTS/config.yml"))
 
 # load pretrained ASR model
 ASR_config = config.get('ASR_config', False)
@@ -82,7 +82,7 @@ model = build_model(model_params, text_aligner, pitch_extractor, plbert)
 _ = [model[key].eval() for key in model]
 _ = [model[key].to(device) for key in model]
 
-params_whole = torch.load("Models/LibriTTS/epochs_2nd_00020.pth", map_location='cpu')
+params_whole = torch.load("Models/StyleTTS2-LibriTTS/LibriTTS/epochs_2nd_00020.pth", map_location='cpu')
 params = params_whole['net']
 
 for key in model:
