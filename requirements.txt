@@ -39,16 +39,17 @@ rich
 peft
 trl
 scipy
-huggingface_hub
+huggingface_hub[hf_xet]
 apscheduler
 fastapi
 uvicorn
 mcp
 git+https://github.com/resemble-ai/monotonic_align.git
 SoundFile
-torchaudio
+torch==2.6.0 --index-url https://download.pytorch.org/whl/cu126
+torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu126
+torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu126
 munch
-torch
 pydub
 librosa
 nltk
