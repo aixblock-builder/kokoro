@@ -20,9 +20,9 @@ gitpython
 centrifuge-python
 opencv-python>=4.1.1
 grafana-api
-diffusers
+# diffusers
 simuleval
-gitpython
+# gitpython
 ipython
 nvidia-ml-py
 wandb
