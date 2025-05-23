@@ -28,8 +28,8 @@ import phonemizer
     # with open('voices.pkl', 'rb') as f:
         # voices = pickle.load(f)
 # else:
-for v in voicelist:
-    voices[v] = styletts2importable.compute_style(f'voices/{v}.wav')
+# for v in voicelist:
+#     voices[v] = styletts2importable.compute_style(f'voices/{v}.wav')
 # def synthesize(text, voice, multispeakersteps):
 #     if text.strip() == "":
 #         raise gr.Error("You must enter some text")
@@ -172,4 +172,4 @@ with gr.Blocks(title="StyleTTS 2", css="footer{display:none !important}", theme=
 
 # if __name__ == "__main__":
 #     # demo.queue(api_open=False, max_size=15).launch(show_api=False)
-#     demo.queue(api_open=False, max_size=15).launch(show_api=False)
+#     gradio_app, local_url, share_url = demo.launch(share=True, quiet=True, prevent_thread_lock=True, server_name='0.0.0.0',show_error=True)
