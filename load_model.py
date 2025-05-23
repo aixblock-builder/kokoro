@@ -40,14 +40,15 @@ def clone_with_lfs(repo_url, repo_dir_name, models_base_dir):
         print(f"[!] ❌ Không có thư mục 'Models' trong repo {repo_dir_name}")
 
 def print_models_tree(models_dir):
-    print(f"\n📂 Nội dung thư mục {models_dir}:")
+    print(f"\n📂 Nội dung thư mục {os.path.abspath(models_dir)}:")
     for root, dirs, files in os.walk(models_dir):
         level = root.replace(models_dir, '').count(os.sep)
         indent = '    ' * level
         print(f"{indent}- 📁 {os.path.basename(root)}")
         sub_indent = '    ' * (level + 1)
         for f in files:
-            print(f"{sub_indent}- 📄 {f}")
+            abs_path = os.path.abspath(os.path.join(root, f))
+            print(f"{sub_indent}- 📄 {f} → {abs_path}")
 
 # ---------- Main script ----------
 install_git_lfs()
