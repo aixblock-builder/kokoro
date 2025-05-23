@@ -1,28 +1,47 @@
-from seamless_communication.inference import Translator
-import torch
-from huggingface_hub import HfFolder
+import subprocess
+import shutil
+import sys
 import os
 
-# Đặt token của bạn vào đây
-hf_token = os.getenv("HF_TOKEN", "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")
-# Lưu token vào local
-HfFolder.save_token(hf_token)
+def clone_with_lfs(repo_url, repo_dir_name, target_dir):
+    # Clone repo
+    subprocess.run(["git", "clone", repo_url], check=True)
 
-from huggingface_hub import login 
-hf_access_token = "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"
-login(token = hf_access_token)
+    # Chạy lfs pull trong thư mục repo vừa clone
+    subprocess.run(["git", "lfs", "pull"], cwd=repo_dir_name, check=True)
 
-if torch.cuda.is_available():
-    device = torch.device("cuda:0")
-    dtype = torch.float16
-else:
-    device = torch.device("cpu")
-    dtype = torch.float32
+    # Move thư mục Models trong repo về thư mục đích
+    shutil.move(os.path.join(repo_dir_name, "Models"), target_dir)
 
-translator = Translator(
-    model_name_or_card="seamlessM4T_v2_large",
-    vocoder_name_or_card="vocoder_v2",
-    device=device,
-    dtype=dtype,
-    apply_mintox=True,
+# Clone StyleTTS2-LibriTTS
+clone_with_lfs(
+    "https://huggingface.co/yl4579/StyleTTS2-LibriTTS",
+    "StyleTTS2-LibriTTS",
+    "./Models"
 )
+
+# Clone StyleTTS2-LJSpeech (nếu muốn ghi đè Models)
+clone_with_lfs(
+    "https://huggingface.co/yl4579/StyleTTS2-LJSpeech",
+    "StyleTTS2-LJSpeech",
+    "./Models"
+)
+
+def install_espeak():
+    try:
+        # Kiểm tra xem espeak đã cài chưa
+        subprocess.run(['espeak', '--version'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print("espeak đã được cài đặt.")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("Đang cài đặt espeak...")
+        if sys.platform.startswith('linux'):
+            # Với Linux (Ubuntu/Debian)
+            subprocess.run(['sudo', 'apt-get', 'update'], check=True)
+            subprocess.run(['sudo', 'apt-get', 'install', '-y', 'espeak-ng'], check=True)
+        elif sys.platform == 'darwin':
+            # Với macOS (bạn cần cài Homebrew trước)
+            subprocess.run(['brew', 'install', 'espeak'], check=True)
+        else:
+            raise RuntimeError("Chưa hỗ trợ cài espeak tự động trên hệ điều hành này.")
+
+install_espeak()
