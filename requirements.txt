@@ -39,7 +39,7 @@ rich
 peft
 trl
 scipy
-huggingface_hub[hf_xet]
+huggingface_hub
 apscheduler
 fastapi
 uvicorn
@@ -60,3 +60,4 @@ typing
 typing-extensions
 phonemizer
 einops_exts
+txtsplit
