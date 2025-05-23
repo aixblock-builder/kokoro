@@ -18,15 +18,9 @@ def install_git_lfs():
             subprocess.run(['git', 'lfs', 'install'], check=True)
         else:
             raise EnvironmentError("⚠️ Chưa hỗ trợ cài đặt git-lfs trên hệ điều hành này.")
-
-models_src = os.path.join(repo_dir_name, "Models")
-try:
-    if os.path.exists(models_src):
-        if os.path.exists(target_dir):
-            print(f"🧹 Xóa thư mục đích cũ: {target_dir}")
-            shutil.rmtree(target_dir)
-except:
-    pass
+        
+base_dir = os.getcwd()
+models_src = os.path.join(base_dir, "Models")
     
 def clone_with_lfs(repo_url, repo_dir_name, target_dir):
     # Dọn thư mục repo nếu tồn tại
