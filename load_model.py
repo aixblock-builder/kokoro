@@ -19,6 +19,15 @@ def install_git_lfs():
         else:
             raise EnvironmentError("⚠️ Chưa hỗ trợ cài đặt git-lfs trên hệ điều hành này.")
 
+models_src = os.path.join(repo_dir_name, "Models")
+try:
+    if os.path.exists(models_src):
+        if os.path.exists(target_dir):
+            print(f"🧹 Xóa thư mục đích cũ: {target_dir}")
+            shutil.rmtree(target_dir)
+except:
+    pass
+    
 def clone_with_lfs(repo_url, repo_dir_name, target_dir):
     # Dọn thư mục repo nếu tồn tại
     if os.path.exists(repo_dir_name):
@@ -35,19 +44,14 @@ def clone_with_lfs(repo_url, repo_dir_name, target_dir):
 
     # Move Models
     models_src = os.path.join(repo_dir_name, "Models")
-    if os.path.exists(models_src):
-        if os.path.exists(target_dir):
-            print(f"🧹 Xóa thư mục đích cũ: {target_dir}")
-            shutil.rmtree(target_dir)
-        shutil.move(models_src, target_dir)
-        print(f"✅ Đã move {models_src} ➜ {target_dir}")
+    shutil.move(models_src, target_dir)
+    print(f"✅ Đã move {models_src} ➜ {target_dir}")
 
-        # ✅ Liệt kê nội dung thư mục
-        print(f"📂 Nội dung thư mục {target_dir}:")
-        for f in os.listdir(target_dir):
-            print("  -", f)
-    else:
-        print(f"[!] ❌ Không tìm thấy thư mục 'Models' trong repo {repo_dir_name}")
+    # ✅ Liệt kê nội dung thư mục
+    print(f"📂 Nội dung thư mục {target_dir}:")
+    for f in os.listdir(target_dir):
+        print("  -", f)
+    
 
 # Gọi hàm
 install_git_lfs()
