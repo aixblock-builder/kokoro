@@ -17,8 +17,6 @@ def install_git_lfs():
         elif sys.platform == 'darwin':
             subprocess.run(['brew', 'install', 'git-lfs'], check=True)
             subprocess.run(['git', 'lfs', 'install'], check=True)
-        else:
-            raise RuntimeError("Chưa hỗ trợ cài git-lfs tự động trên hệ điều hành này.")
 
 install_git_lfs()
 
@@ -29,38 +27,29 @@ def clone_with_lfs(repo_url, repo_dir_name, target_dir):
     # Chạy lfs pull trong thư mục repo vừa clone
     subprocess.run(["git", "lfs", "pull"], cwd=repo_dir_name, check=True)
 
-    # Move thư mục Models trong repo về thư mục đích
-    shutil.move(os.path.join(repo_dir_name, "Models"), target_dir)
+    # Đường dẫn thư mục Models trong repo
+    models_src = os.path.join(repo_dir_name, "Models")
 
-# Clone StyleTTS2-LibriTTS
+    # Kiểm tra thư mục Models có tồn tại không
+    if os.path.exists(models_src):
+        # Nếu thư mục đích đã tồn tại, xóa đi để tránh lỗi move
+        if os.path.exists(target_dir):
+            shutil.rmtree(target_dir)
+
+        shutil.move(models_src, target_dir)
+        print(f"Đã move {models_src} => {target_dir}")
+    else:
+        print(f"[!] Không tìm thấy thư mục 'Models' trong repo {repo_dir_name}")
+
+# Sử dụng
 clone_with_lfs(
     "https://huggingface.co/yl4579/StyleTTS2-LibriTTS",
     "StyleTTS2-LibriTTS",
-    "./Models"
+    "Models"
 )
 
-# Clone StyleTTS2-LJSpeech (nếu muốn ghi đè Models)
 clone_with_lfs(
     "https://huggingface.co/yl4579/StyleTTS2-LJSpeech",
     "StyleTTS2-LJSpeech",
-    "./Models"
+    "Models"
 )
-
-def install_espeak():
-    try:
-        # Kiểm tra xem espeak đã cài chưa
-        subprocess.run(['espeak', '--version'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print("espeak đã được cài đặt.")
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        print("Đang cài đặt espeak...")
-        if sys.platform.startswith('linux'):
-            # Với Linux (Ubuntu/Debian)
-            subprocess.run(['sudo', 'apt-get', 'update'], check=True)
-            subprocess.run(['sudo', 'apt-get', 'install', '-y', 'espeak-ng'], check=True)
-        elif sys.platform == 'darwin':
-            # Với macOS (bạn cần cài Homebrew trước)
-            subprocess.run(['brew', 'install', 'espeak'], check=True)
-        else:
-            raise RuntimeError("Chưa hỗ trợ cài espeak tự động trên hệ điều hành này.")
-
-install_espeak()
