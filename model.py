@@ -251,8 +251,6 @@ class MyModel(AIxBlockMLBase):
 
                     logger.info("===Train===")
 
-                    config['data_params']['root_path'] = "Data/wavs"
-
                     config['batch_size'] = batch_size
                     config['max_len'] = 100 # not enough RAM
                     config['loss_params']['joint_epoch'] = 110 # we do not do SLM adversarial training due to not enough RAM
