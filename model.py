@@ -244,22 +244,6 @@ class MyModel(AIxBlockMLBase):
                         shutil.move(wavs_src, wavs_dst)
                         logger.info(f"Đã di chuyển thư mục wavs từ {wavs_src} đến {wavs_dst}")
 
-                        def print_dir_tree(start_path):
-                            total_files = 0
-                            print(f"\n📁 Cấu trúc thư mục: {start_path}")
-                            for root, dirs, files in os.walk(start_path):
-                                level = root.replace(start_path, '').count(os.sep)
-                                indent = '    ' * level
-                                print(f"{indent}- 📂 {os.path.basename(root)}")
-                                subindent = '    ' * (level + 1)
-                                for f in files:
-                                    print(f"{subindent}- 📄 {f}")
-                                    total_files += 1
-                            print(f"\n📊 Tổng số file: {total_files}")
-
-                        # Gọi sau khi di chuyển wavs
-                        print_dir_tree("Data")
-
 
                     make_dir = os.path.join(os.getcwd(), "checkpoint")
                     os.makedirs(make_dir, exist_ok=True)
@@ -272,6 +256,7 @@ class MyModel(AIxBlockMLBase):
 
                     logger.info("===Train===")
 
+                    config['batch_size'] = batch_size
                     config['max_len'] = 100 # not enough RAM
                     config['loss_params']['joint_epoch'] = 110 
                     config['epochs'] = epoch
@@ -291,64 +276,6 @@ class MyModel(AIxBlockMLBase):
                     # Nếu repo chưa tồn tại, tạo mới
                     create_repo(repo_id=repo_id, token=push_to_hub_token, exist_ok=True)
 
-                    # Tạo ModelCard metadata (nếu chưa có)
-                    try:
-                        card = ModelCard.load(repo_id, token=push_to_hub_token)
-                    except Exception:
-                        card = ModelCard("")
-
-                    if not card.text.lstrip().startswith("---"):
-                        yaml_metadata = (
-                            "---\n"
-                            "license: apache-2.0\n"
-                            "language: en\n"
-                            "tags:\n"
-                            "  - speech\n"
-                            "  - translation\n"
-                            f"model_name: {hf_model_id}\n"
-                            "---\n\n"
-                        )
-                        card.text = yaml_metadata + card.text
-
-                    # Bổ sung phần Citations
-                    sections = card.text.split("## ")
-                    new_sections = []
-                    for section in sections:
-                        if section.lower().startswith("citations"):
-                            new_section = (
-                                "Citations\n\n"
-                                "This model was fine-tuned using custom data and training scripts.\n\n"
-                                "© 2025 YourTeamName. All rights reserved.\n"
-                            )
-                            new_sections.append(new_section)
-                        else:
-                            new_sections.append(section)
-                    card.text = "## ".join(new_sections)
-
-                    # Save ModelCard locally
-                    readme_path = "README.md"
-                    with open(readme_path, "w") as f:
-                        f.write(card.text)
-
-                    # Upload README.md
-                    upload_file(
-                        path_or_fileobj=readme_path,
-                        path_in_repo="README.md",
-                        repo_id=repo_id,
-                        token=push_to_hub_token,
-                        commit_message="Upload README"
-                    )
-                    fallback_path = os.path.join(os.getcwd(), "tokenizer.model")
-
-                    # Kiểm tra trong checkpoints/
-                    checkpoints_path = os.path.join(os.getcwd(), "checkpoints", "tokenizer.model")
-
-                    # Nếu file tồn tại ở checkpoints thì dùng
-                    if os.path.exists(checkpoints_path):
-                        tokenizer_model_path = checkpoints_path
-                    else:
-                        tokenizer_model_path = fallback_path
-
                     # ✅ Upload checkpoint (đặt tên chuẩn theo Transformers nếu có thể)
                     upload_folder(
                         folder_path=make_dir,
@@ -358,8 +285,49 @@ class MyModel(AIxBlockMLBase):
                         commit_message="Upload fine-tuned checkpoint"
                     )
 
+                    yaml_metadata = (
+                        "---\n"
+                        "license: apache-2.0\n"
+                        "language: en\n"
+                        "tags:\n"
+                        "  - speech\n"
+                        "  - translation\n"
+                        f"model_name: {hf_model_id}\n"
+                        "---\n\n"
+                    )
+
+                    # Nội dung phần mô tả
+                    description = (
+                        "# Model Overview\n\n"
+                        "This model was trained/fine-tuned for speech translation tasks. "
+                        "It is based on a pretrained backbone and optimized using custom datasets.\n\n"
+                    )
+
+                    # Nội dung phần trích dẫn
+                    citations = (
+                        "## Citations\n\n"
+                        "This model was fine-tuned using custom data and training scripts.\n\n"
+                        "© 2025 YourTeamName. All rights reserved.\n"
+                    )
+
+                    # Tạo nội dung README
+                    readme_content = yaml_metadata + description + citations
+
+                    # Ghi ra file README.md
+                    readme_path = "README.md"
+                    with open(readme_path, "w", encoding="utf-8") as f:
+                        f.write(readme_content)
+
+                    # Upload lên Hugging Face Hub
+                    upload_file(
+                        path_or_fileobj=readme_path,
+                        path_in_repo="README.md",
+                        repo_id=repo_id,
+                        token=push_to_hub_token,
+                        commit_message="Upload new README.md"
+                    )
+
                     print("✅ Đã upload README.md và checkpoint lên Hugging Face Hub!")
-                    
 
                     CHANNEL_STATUS[channel_name]["status"] = "done"
                     output_dir = "./data/checkpoint"
