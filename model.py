@@ -1,71 +1,68 @@
-try:
-    import os
-    import uuid
+import os
+import uuid
 
-    import torch
-    from aixblock_ml.model import AIxBlockMLBase
-    import torch
-    import subprocess
-    import json
-    import threading
-    import requests
-    from loguru import logger
-    import numpy as np
-    from function_ml import connect_project, download_dataset, upload_checkpoint
-    from logging_class import start_queue, write_log
-    import time
-    from mcp.server.fastmcp import FastMCP
-    import zipfile
-    from huggingface_hub import (
-        HfFolder, 
-        login,
-        whoami,
-        ModelCard,
-        upload_file,
-        create_repo
-    )
-    import styletts2importable
-    import ljspeechimportable
-    import io
-    from scipy.io.wavfile import write
-    import base64
-    import numpy as np
-    from tqdm import tqdm
-    import tarfile
-    import shutil
-    import yaml
+import torch
+from aixblock_ml.model import AIxBlockMLBase
+import torch
+import subprocess
+import json
+import threading
+import requests
+from loguru import logger
+import numpy as np
+from function_ml import connect_project, download_dataset, upload_checkpoint
+from logging_class import start_queue, write_log
+import time
+from mcp.server.fastmcp import FastMCP
+import zipfile
+from huggingface_hub import (
+    HfFolder, 
+    login,
+    whoami,
+    ModelCard,
+    upload_file,
+    create_repo
+)
+import styletts2importable
+import ljspeechimportable
+import io
+from scipy.io.wavfile import write
+import base64
+import numpy as np
+from tqdm import tqdm
+import tarfile
+import shutil
+import yaml
 
-    hf_token = os.getenv("HF_TOKEN", "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")
-    HfFolder.save_token(hf_token)
-
-
-    hf_access_token = "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"
-    login(token=hf_access_token)
-    CUDA_VISIBLE_DEVICES = []
-    for i in range(torch.cuda.device_count()):
-        CUDA_VISIBLE_DEVICES.append(i)
-    os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
-        f"{i}" for i in range(len(CUDA_VISIBLE_DEVICES))
-    )
-    print(os.environ["CUDA_VISIBLE_DEVICES"])
+hf_token = os.getenv("HF_TOKEN", "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")
+HfFolder.save_token(hf_token)
 
 
-    HOST_NAME = os.environ.get("HOST_NAME", "https://dev-us-west-1.aixblock.io")
-    TYPE_ENV = os.environ.get("TYPE_ENV", "DETECTION")
+hf_access_token = "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"
+login(token=hf_access_token)
+CUDA_VISIBLE_DEVICES = []
+for i in range(torch.cuda.device_count()):
+    CUDA_VISIBLE_DEVICES.append(i)
+os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
+    f"{i}" for i in range(len(CUDA_VISIBLE_DEVICES))
+)
+print(os.environ["CUDA_VISIBLE_DEVICES"])
 
 
-    mcp = FastMCP("aixblock-mcp")
+HOST_NAME = os.environ.get("HOST_NAME", "https://dev-us-west-1.aixblock.io")
+TYPE_ENV = os.environ.get("TYPE_ENV", "DETECTION")
 
-    CHANNEL_STATUS = {}
 
-    if torch.cuda.is_available():
-        device = torch.device("cuda:0")
-        dtype = torch.float16
-    else:
-        device = torch.device("cpu")
-        dtype = torch.float32
-except ImportError as e:
-    print(f"❌ Import failed: {e}")
+mcp = FastMCP("aixblock-mcp")
+
+CHANNEL_STATUS = {}
+
+if torch.cuda.is_available():
+    device = torch.device("cuda:0")
+    dtype = torch.float16
+else:
+    device = torch.device("cpu")
+    dtype = torch.float32
 
 class MyModel(AIxBlockMLBase):
     @mcp.tool()
@@ -280,7 +277,7 @@ class MyModel(AIxBlockMLBase):
                     try:
                         subprocess.run([
                             "venv/bin/python", "train_finetune.py",
-                            "--config_path", "./Configs/config_ft.yml"
+                            "--config_path", "Configs/config_ft.yml"
                         ], check=True)
                     except Exception as e:
                         logger.error(f"Lỗi khi train model: {e}")
