@@ -239,10 +239,10 @@ class MyModel(AIxBlockMLBase):
                         shutil.move(wavs_src, wavs_dst)
                         logger.info(f"Đã di chuyển thư mục wavs từ {wavs_src} đến {wavs_dst}")
 
-                        config_path = "Configs/config_ft.yml"
-                        config = yaml.safe_load(open(config_path))
-                        logger.info(f"Config: {config}")
 
+                    config_path = "Configs/config_ft.yml"
+                    config = yaml.safe_load(open(config_path))
+                    logger.info(f"Config: {config}")
 
                     make_dir = os.path.join(os.getcwd(), "checkpoints")
                     os.makedirs(make_dir, exist_ok=True)
@@ -258,21 +258,6 @@ class MyModel(AIxBlockMLBase):
                     config['max_len'] = 100 # not enough RAM
                     config['loss_params']['joint_epoch'] = 110 # we do not do SLM adversarial training due to not enough RAM
                     config['epochs'] = epoch
-
-                    with open(config_path, 'w') as outfile:
-                        yaml.dump(config, outfile, default_flow_style=True)
-                        subprocess.run([
-                            "venv/bin/m4t_finetune",
-                            "--train_dataset", train_dir,
-                            "--eval_dataset", validation_dir,
-                            "--batch_size", str(batch_size),
-                            "--eval_steps", "1000",
-                            "--learning_rate", "0.00005",
-                            "--patience", "10",
-                            "--max_epochs", str(epoch),
-                            "--model_name", "seamlessM4T_medium",
-                            "--save_model_to", f"{make_dir}/checkpoint.pt"
-                        ], check=True)
 
                     try:
                         subprocess.run([
