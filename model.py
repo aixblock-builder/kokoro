@@ -30,64 +30,6 @@ import torch
 # from transformers import AutoProcessor, SeamlessM4Tv2Model
 import torchaudio
 
-# processor = AutoProcessor.from_pretrained("facebook/seamless-m4t-v2-large")
-# model = SeamlessM4Tv2Model.from_pretrained("facebook/seamless-m4t-v2-large")
-
-# # from text
-# text_inputs = processor(text = "Hello, my dog is cute", src_lang="eng", return_tensors="pt")
-# audio_array_from_text = model.generate(**text_inputs, tgt_lang="rus")[0].cpu().numpy().squeeze()
-
-# # from audio
-# audio, orig_freq =  torchaudio.load("https://www2.cs.uic.edu/~i101/SoundFiles/preamble10.wav")
-# audio =  torchaudio.functional.resample(audio, orig_freq=orig_freq, new_freq=16_000) # must be a 16 kHz waveform array
-# audio_inputs = processor(audios=audio, return_tensors="pt")
-# audio_array_from_audio = model.generate(**audio_inputs, tgt_lang="rus")[0].cpu().numpy().squeeze()
-
-# MODEL_NAME = os.getenv('MODEL_NAME', 'facebook/opt-125m')
-# _model = pipeline('text-generation', model=MODEL_NAME)
-
-
-# class HuggingFaceLLM(LabelStudioMLBase):
-#     """Custom ML Backend model
-#     """
-
-#     MAX_LENGTH = int(os.getenv('MAX_LENGTH', 50))
-
-#     def setup(self):
-#         """Configure any paramaters of your model here
-#         """
-#         self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
-
-#     def predict(self, tasks: List[Dict], context: Optional[Dict] = None, **kwargs) -> ModelResponse:
-#         """ Write your inference logic here
-#             :param tasks: [AIxBlock tasks in JSON format](https://labelstud.io/guide/task_format.html)
-#             :param context: [AIxBlock context in JSON format](https://labelstud.io/guide/ml_create#Implement-prediction-logic)
-#             :return model_response
-#                 ModelResponse(predictions=predictions) with
-#                 predictions: [Predictions array in JSON format](https://labelstud.io/guide/export.html#Label-Studio-JSON-format-of-annotated-tasks)
-#         """
-#         from_name, to_name, value = self.label_interface.get_first_tag_occurence('TextArea', 'Text')
-#         predictions = []
-#         for task in tasks:
-#             text = self.preload_task_data(task, task['data'][value])
-#             result = _model(text, max_length=self.MAX_LENGTH)
-#             generated_text = result[0]['generated_text']
-#             # cut the `text` prefix
-#             generated_text = generated_text[len(text):].strip()
-#             predictions.append({
-#                 'result': [{
-#                     'from_name': from_name,
-#                     'to_name': to_name,
-#                     'type': 'textarea',
-#                     'value': {
-#                         'text': [generated_text]
-#                     }
-#                 }],
-#                 'model_version': self.get('model_version')
-#             })
-        
-#         return ModelResponse(predictions=predictions, model_version=self.get("model_version"))
-
 from typing import List, Dict, Optional
 from aixblock_ml.model import AIxBlockMLBase
 import torch.distributed as dist
@@ -114,6 +56,16 @@ from huggingface_hub import (
     upload_file,
     create_repo
 )
+import styletts2importable
+import ljspeechimportable
+import io
+from scipy.io.wavfile import write
+import base64
+import numpy as np
+from tqdm import tqdm
+import tarfile
+import shutil
+import yaml
 
 hf_token = os.getenv("HF_TOKEN", "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")
 HfFolder.save_token(hf_token)
@@ -145,302 +97,6 @@ else:
     device = torch.device("cpu")
     dtype = torch.float32
 
-
-# audio sample rate 44100 vs 48000
-AUDIO_SAMPLE_RATE = 44100 # 16000.0
-MAX_INPUT_AUDIO_LENGTH = 1800  # in seconds
-DEFAULT_TARGET_LANGUAGE = "vie"
-# Language dict
-language_code_to_name = {
-    "afr": "Afrikaans",
-    "amh": "Amharic",
-    "arb": "Modern Standard Arabic",
-    "ary": "Moroccan Arabic",
-    "arz": "Egyptian Arabic",
-    "asm": "Assamese",
-    "ast": "Asturian",
-    "azj": "North Azerbaijani",
-    "bel": "Belarusian",
-    "ben": "Bengali",
-    "bos": "Bosnian",
-    "bul": "Bulgarian",
-    "cat": "Catalan",
-    "ceb": "Cebuano",
-    "ces": "Czech",
-    "ckb": "Central Kurdish",
-    "cmn": "Mandarin Chinese",
-    "cym": "Welsh",
-    "dan": "Danish",
-    "deu": "German",
-    "ell": "Greek",
-    "eng": "English",
-    "est": "Estonian",
-    "eus": "Basque",
-    "fin": "Finnish",
-    "fra": "French",
-    "gaz": "West Central Oromo",
-    "gle": "Irish",
-    "glg": "Galician",
-    "guj": "Gujarati",
-    "heb": "Hebrew",
-    "hin": "Hindi",
-    "hrv": "Croatian",
-    "hun": "Hungarian",
-    "hye": "Armenian",
-    "ibo": "Igbo",
-    "ind": "Indonesian",
-    "isl": "Icelandic",
-    "ita": "Italian",
-    "jav": "Javanese",
-    "jpn": "Japanese",
-    "kam": "Kamba",
-    "kan": "Kannada",
-    "kat": "Georgian",
-    "kaz": "Kazakh",
-    "kea": "Kabuverdianu",
-    "khk": "Halh Mongolian",
-    "khm": "Khmer",
-    "kir": "Kyrgyz",
-    "kor": "Korean",
-    "lao": "Lao",
-    "lit": "Lithuanian",
-    "ltz": "Luxembourgish",
-    "lug": "Ganda",
-    "luo": "Luo",
-    "lvs": "Standard Latvian",
-    "mai": "Maithili",
-    "mal": "Malayalam",
-    "mar": "Marathi",
-    "mkd": "Macedonian",
-    "mlt": "Maltese",
-    "mni": "Meitei",
-    "mya": "Burmese",
-    "nld": "Dutch",
-    "nno": "Norwegian Nynorsk",
-    "nob": "Norwegian Bokm\u00e5l",
-    "npi": "Nepali",
-    "nya": "Nyanja",
-    "oci": "Occitan",
-    "ory": "Odia",
-    "pan": "Punjabi",
-    "pbt": "Southern Pashto",
-    "pes": "Western Persian",
-    "pol": "Polish",
-    "por": "Portuguese",
-    "ron": "Romanian",
-    "rus": "Russian",
-    "slk": "Slovak",
-    "slv": "Slovenian",
-    "sna": "Shona",
-    "snd": "Sindhi",
-    "som": "Somali",
-    "spa": "Spanish",
-    "srp": "Serbian",
-    "swe": "Swedish",
-    "swh": "Swahili",
-    "tam": "Tamil",
-    "tel": "Telugu",
-    "tgk": "Tajik",
-    "tgl": "Tagalog",
-    "tha": "Thai",
-    "tur": "Turkish",
-    "ukr": "Ukrainian",
-    "urd": "Urdu",
-    "uzn": "Northern Uzbek",
-    "vie": "Vietnamese",
-    "xho": "Xhosa",
-    "yor": "Yoruba",
-    "yue": "Cantonese",
-    "zlm": "Colloquial Malay",
-    "zsm": "Standard Malay",
-    "zul": "Zulu",
-}
-
-
-# Source langs: S2ST / S2TT / ASR don't need source lang
-# T2TT / T2ST use this
-text_source_language_codes = [
-    "afr",
-    "amh",
-    "arb",
-    "ary",
-    "arz",
-    "asm",
-    "azj",
-    "bel",
-    "ben",
-    "bos",
-    "bul",
-    "cat",
-    "ceb",
-    "ces",
-    "ckb",
-    "cmn",
-    "cym",
-    "dan",
-    "deu",
-    "ell",
-    "eng",
-    "est",
-    "eus",
-    "fin",
-    "fra",
-    "gaz",
-    "gle",
-    "glg",
-    "guj",
-    "heb",
-    "hin",
-    "hrv",
-    "hun",
-    "hye",
-    "ibo",
-    "ind",
-    "isl",
-    "ita",
-    "jav",
-    "jpn",
-    "kan",
-    "kat",
-    "kaz",
-    "khk",
-    "khm",
-    "kir",
-    "kor",
-    "lao",
-    "lit",
-    "lug",
-    "luo",
-    "lvs",
-    "mai",
-    "mal",
-    "mar",
-    "mkd",
-    "mlt",
-    "mni",
-    "mya",
-    "nld",
-    "nno",
-    "nob",
-    "npi",
-    "nya",
-    "ory",
-    "pan",
-    "pbt",
-    "pes",
-    "pol",
-    "por",
-    "ron",
-    "rus",
-    "slk",
-    "slv",
-    "sna",
-    "snd",
-    "som",
-    "spa",
-    "srp",
-    "swe",
-    "swh",
-    "tam",
-    "tel",
-    "tgk",
-    "tgl",
-    "tha",
-    "tur",
-    "ukr",
-    "urd",
-    "uzn",
-    "vie",
-    "yor",
-    "yue",
-    "zsm",
-    "zul",
-]
-
-# Target langs:
-# S2ST / T2ST
-s2st_target_language_codes = [
-    "eng",
-    "arb",
-    "ben",
-    "cat",
-    "ces",
-    "cmn",
-    "cym",
-    "dan",
-    "deu",
-    "est",
-    "fin",
-    "fra",
-    "hin",
-    "ind",
-    "ita",
-    "jpn",
-    "kor",
-    "mlt",
-    "nld",
-    "pes",
-    "pol",
-    "por",
-    "ron",
-    "rus",
-    "slk",
-    "spa",
-    "swe",
-    "swh",
-    "tel",
-    "tgl",
-    "tha",
-    "tur",
-    "ukr",
-    "urd",
-    "uzn",
-    "vie",
-]
-
-def read_dataset(file_path):
-    # Kiểm tra xem thư mục /content/ có tồn tại không
-    if os.path.isdir(file_path):
-        files = os.listdir(file_path)
-        # Kiểm tra xem có file json nào không
-        for file in files:
-            if file.endswith(".json"):
-            # Đọc file json
-                with open(os.path.join(file_path, file), "r") as f:
-                    data = json.load(f)
-
-                return data
-    return None
-
-def is_correct_format(data_json):
-    try:
-        for item in data_json:
-            if not all(key in item for key in ['instruction', 'input', 'output']):
-                return False
-        return True
-    except Exception as e:
-        return False
-    
-def conver_to_hf_dataset(data_json):
-    formatted_data = []
-    for item in data_json:
-        for annotation in item['annotations']:
-            question = None
-            answer = None
-            for result in annotation['result']:
-                if result['from_name'] == 'question':
-                    question = result['value']['text'][0]
-                elif result['from_name'] == 'answer':
-                    answer = result['value']['text'][0]
-            if question and answer:
-                formatted_data.append({
-                    'instruction': item['data']['text'],
-                    'input': question,
-                    'output': answer
-                })
-    return formatted_data
-
-    # dataset = Dataset.from_list(formatted_data)
 class MyModel(AIxBlockMLBase):
     @mcp.tool()
     def action(self, command, **kwargs):
@@ -579,34 +235,44 @@ class MyModel(AIxBlockMLBase):
 
                         train_dir = os.path.join(dataset_path, "train/train_manifest.json")
                         validation_dir = os.path.join(dataset_path, "validation/validation_manifest.json")
+                    
                     else:
-                        base_dir = "fleurs"
-                        subprocess.run(["mkdir", "-p", f"{base_dir}/train"], check=True)
+                        url = "https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2"
+                        filename = "LJSpeech-1.1.tar.bz2"
 
-                        # Chạy lệnh m4t_prepare_dataset
-                        subprocess.run([
-                            "venv/bin/m4t_prepare_dataset",
-                            "--name", "google/fleurs",
-                            "--source_lang", "eng",
-                            "--target_lang", "eng",
-                            "--split", "train",
-                            "--save_dir", f"{base_dir}/train"
-                        ], check=True)
+                        response = requests.get(url, stream=True)
+                        total_size = int(response.headers.get('content-length', 0))
+                        block_size = 1024  # 1 Kibibyte
 
-                        subprocess.run(["mkdir", "-p", f"{base_dir}/validation"], check=True)
-
-                        # Chạy lệnh m4t_prepare_dataset
-                        subprocess.run([
-                            "venv/bin/m4t_prepare_dataset",
-                            "--name", "google/fleurs",
-                            "--source_lang", "eng",
-                            "--target_lang", "eng",
-                            "--split", "validation",
-                            "--save_dir", f"{base_dir}/validation"
-                        ], check=True)
+                        with open(filename, 'wb') as file, tqdm(
+                            desc=filename,
+                            total=total_size,
+                            unit='iB',
+                            unit_scale=True,
+                            unit_divisor=1024,
+                        ) as bar:
+                            for data in response.iter_content(block_size):
+                                file.write(data)
+                                bar.update(len(data))
                         
-                        train_dir = os.path.join(base_dir, "train/train_manifest.json")
-                        validation_dir = os.path.join(base_dir, "validation/validation_manifest.json")
+                        with tarfile.open("LJSpeech-1.1.tar.bz2", "r:bz2") as tar:
+                            tar.extractall("LJSpeech-1.1")
+                        
+                        target_dir = "Data"
+                        wavs_src = os.path.join("LJSpeech-1.1", "LJSpeech-1.1", "wavs")
+                        wavs_dst = os.path.join(target_dir, "wavs")
+
+                        os.makedirs(target_dir, exist_ok=True)
+
+                        # Di chuyển thư mục wavs
+                        if os.path.exists(wavs_dst):
+                            shutil.rmtree(wavs_dst)
+
+                        shutil.move(wavs_src, wavs_dst)
+
+                        config_path = "Configs/config_ft.yml"
+                        config = yaml.safe_load(open(config_path))
+
 
                     make_dir = os.path.join(os.getcwd(), "checkpoints")
                     os.makedirs(make_dir, exist_ok=True)
@@ -616,54 +282,15 @@ class MyModel(AIxBlockMLBase):
                     )
                     print("===Train===")
 
-                    if int(world_size) > 1:
-                        if rank == 0:
-                            subprocess.run([
-                                "venv/bin/torchrun",
-                                "--rdzv-backend=c10d",
-                                "--rdzv-endpoint=localhost:0",
-                                "--nnodes", str(world_size),
-                                "--nproc-per-node", str(world_size * torch.cuda.device_count()),
-                                "--node_rank", str(rank),
-                                "--master_addr", "127.0.0.1",
-                                "--master_port", "23456",
-                                "--no-python",  
-                                "m4t_finetune",
-                                "--mode", "SPEECH_TO_TEXT",
-                                "--train_dataset", train_dir,
-                                "--eval_dataset", validation_dir,
-                                "--learning_rate", "1e-6",
-                                "--batch_size", batch_size,
-                                "--warmup_steps", "100",
-                                "--max_epochs", epoch,
-                                "--patience", "5",
-                                "--model_name", "seamlessM4T_medium",
-                                "--save_model_to", f"{make_dir}/checkpoint.pt"
-                            ], check=True)
-                        else:
-                            subprocess.run([
-                                "venv/bin/torchrun",
-                                "--rdzv-backend=c10d",
-                                "--rdzv-endpoint=localhost:0",
-                                "--nnodes", str(world_size),
-                                "--nproc-per-node", str(world_size * torch.cuda.device_count()),
-                                "--node_rank", str(rank),
-                                "--master_addr", master_add,
-                                "--master_port", master_port,
-                                "--no-python",  
-                                "m4t_finetune",
-                                "--mode", "SPEECH_TO_TEXT",
-                                "--train_dataset", train_dir,
-                                "--eval_dataset", validation_dir,
-                                "--learning_rate", "1e-6",
-                                "--batch_size", batch_size,
-                                "--warmup_steps", "100",
-                                "--max_epochs", epoch,
-                                "--patience", "5",
-                                "--model_name", "seamlessM4T_medium",
-                                "--save_model_to", f"{make_dir}/checkpoint.pt"
-                            ], check=True)
-                    else:
+                    config['data_params']['root_path'] = "Data/wavs"
+
+                    config['batch_size'] = batch_size
+                    config['max_len'] = 100 # not enough RAM
+                    config['loss_params']['joint_epoch'] = 110 # we do not do SLM adversarial training due to not enough RAM
+                    config['epochs'] = epoch
+
+                    with open(config_path, 'w') as outfile:
+                        yaml.dump(config, outfile, default_flow_style=True)
                         subprocess.run([
                             "venv/bin/m4t_finetune",
                             "--train_dataset", train_dir,
@@ -677,6 +304,12 @@ class MyModel(AIxBlockMLBase):
                             "--save_model_to", f"{make_dir}/checkpoint.pt"
                         ], check=True)
 
+                    subprocess.run([
+                        "venv/bin/python", "train_finetune.py",
+                        "--config_path", "./Configs/config_ft.yml"
+                    ], check=True)
+
+                                        
                     checkpoint_path = os.path.join(make_dir, "checkpoint.pt")
 
                     user = whoami(token=push_to_hub_token)['name']
@@ -831,638 +464,100 @@ class MyModel(AIxBlockMLBase):
         #     return {"Share_url": link}
           
         elif command.lower() == "predict":
-                # import torch
-                from seamless_communication.inference import Translator
-                local_model_path = '/app/models-hf/facebook/seamless-m4t-v2-large'
-                translator = Translator(
-                    model_name_or_card="seamlessM4T_v2_large",
-                    vocoder_name_or_card="vocoder_v2",
-                    device=device,
-                    dtype=dtype,
-                    apply_mintox=True,
-                )
-            # try:
-                data = kwargs.get("audio",None)
-                if not data: 
-                    data = kwargs.get("data", "")
-                    
-                source_language = kwargs.get("source","en")
-                target_language = kwargs.get("target","en")
-                prompt = kwargs.get("prompt", "")
-                model_id = kwargs.get("model_id", "")
+            data = kwargs.get("audio",None)
+            prompt = kwargs.get("prompt", "")
+            model_id = kwargs.get("model_id", "")
+            diffusion_steps = kwargs.get("diffusion_steps", 10)
+            token = kwargs.get("token")
+            alpha = kwargs.get("alpha", 0.3)
+            beta = kwargs.get("beta", 0.7)
+            embscale = kwargs.get("embscale", 1)
+            
+            def decode_base64_to_audio(base64_audio, output_file="output.wav"):
+                # Giải mã Base64 thành nhị phân
+                import base64
+                # import os  
+                file_path = os.path.join(os.path.dirname(__file__), output_file)
+                audio_data = base64.b64decode(base64_audio)
+                
+                # Ghi dữ liệu nhị phân vào file âm thanh
+                with open(file_path, "wb") as audio_file:
+                    audio_file.write(audio_data)
+                return file_path
 
-                text = kwargs.get("source", None)
-                if not text:
-                    text = kwargs.get("text", None)
+            def download_audio(audio_url, save_path):
+                # Tạo request để tải video từ URL
+                response = requests.get(audio_url, stream=True)
+                
+                # Kiểm tra nếu request thành công
+                if response.status_code == 200:
+                    with open(save_path, 'wb') as audio_file:
+                        for chunk in response.iter_content(chunk_size=1024):
+                            if chunk:
+                                audio_file.write(chunk)
+                    print(f"audio has been downloaded and saved to {save_path}")
+                    return save_path  # Trả về đường dẫn đến video đã tải về
+                else:
+                    print(f"Failed to download audio. Status code: {response.status_code}")
+                    return None
 
-                token_length = kwargs.get("token_lenght", "")
-                task = kwargs.get("task", "")
-                voice = kwargs.get("voice", "")
-                max_gen_len = kwargs.get("max_gen_len", "")
-                temperature = kwargs.get("temperature", "")
-                top_p = kwargs.get("top_p", "")
-                seed = kwargs.get("seed", "")   
-                project_id = kwargs.get("project_id")
-                token = kwargs.get("token")
-                def decode_base64_to_audio(base64_audio, output_file="output.wav"):
-                        # Giải mã Base64 thành nhị phân
-                        import base64
-                        # import os  
-                        file_path = os.path.join(os.path.dirname(__file__), output_file)
-                        audio_data = base64.b64decode(base64_audio)
-                        
-                        # Ghi dữ liệu nhị phân vào file âm thanh
-                        with open(file_path, "wb") as audio_file:
-                            audio_file.write(audio_data)
-                        return file_path
-                # source_language_code = LANGUAGE_NAME_TO_CODE[source_language]
-                # target_language_code = LANGUAGE_NAME_TO_CODE[target_language]
-                def download_audio(audio_url, save_path):
-                    # Tạo request để tải video từ URL
-                    response = requests.get(audio_url, stream=True)
-                    
-                    # Kiểm tra nếu request thành công
-                    if response.status_code == 200:
-                        with open(save_path, 'wb') as audio_file:
-                            for chunk in response.iter_content(chunk_size=1024):
-                                if chunk:
-                                    audio_file.write(chunk)
-                        print(f"audio has been downloaded and saved to {save_path}")
-                        return save_path  # Trả về đường dẫn đến video đã tải về
-                    else:
-                        print(f"Failed to download audio. Status code: {response.status_code}")
-                        return None
-
-                # Thay audio_url bằng URL audio thật của bạn
-                audio_url = data
-                if "http://" in audio_url or "https://" in audio_url:
+            # Thay audio_url bằng URL audio thật của bạn
+            if data: 
+                if "http://" in data or "https://" in data:
                     input_audio= download_audio(data,"audio.wav")
                 else:
                     input_audio= decode_base64_to_audio(base64_audio=data)
-                def preprocess_audio(input_audio: str) -> None:
-                    # import torchaudio
-                    arr, org_sr = torchaudio.load(input_audio)
-                    
-                    new_arr = torchaudio.functional.resample(arr, orig_freq=org_sr, new_freq=AUDIO_SAMPLE_RATE)
-                    # max_length = int(MAX_INPUT_AUDIO_LENGTH * AUDIO_SAMPLE_RATE)
-                    # if new_arr.shape[1] > max_length:
-                    #     new_arr = new_arr[:, :max_length]
-                        # gr.Warning(f"Input audio is too long. Only the first {MAX_INPUT_AUDIO_LENGTH} seconds is used.") int(AUDIO_SAMPLE_RATE)
-                    torchaudio.save(input_audio, new_arr, sample_rate=AUDIO_SAMPLE_RATE)
-
-                # S2ST_TARGET_LANGUAGE_NAMES = sorted([language_code_to_name[code] for code in s2st_target_language_codes])
-                # TEXT_SOURCE_LANGUAGE_NAMES = sorted([language_code_to_name[code] for code in text_source_language_codes])
-                # LANGUAGE_NAME_TO_CODE = {v: k for k, v in language_code_to_name.items()}
-                # https://raw.githubusercontent.com/facebookresearch/seamless_communication/main/docs/m4t/README.md
-                # def preprocess_audio(input_audio: str) -> None:
-                #     import torchaudio
-                #     arr, org_sr = torchaudio.load(input_audio)
-                    
-                #     new_arr = torchaudio.functional.resample(arr, orig_freq=org_sr, new_freq=org_sr)
-                #     # max_length = int(MAX_INPUT_AUDIO_LENGTH * AUDIO_SAMPLE_RATE)
-                #     # if new_arr.shape[1] > max_length:
-                #     #     new_arr = new_arr[:, :max_length]
-                #         # gr.Warning(f"Input audio is too long. Only the first {MAX_INPUT_AUDIO_LENGTH} seconds is used.") int(AUDIO_SAMPLE_RATE)
-                #     torchaudio.save(input_audio, new_arr, sample_rate=org_sr)
-
-                # # S2ST_TARGET_LANGUAGE_NAMES = sorted([language_code_to_name[code] for code in s2st_target_language_codes])
-                # # TEXT_SOURCE_LANGUAGE_NAMES = sorted([language_code_to_name[code] for code in text_source_language_codes])
-                LANGUAGE_NAME_TO_CODE = {v: k for k, v in language_code_to_name.items()}
-                # # https://raw.githubusercontent.com/facebookresearch/seamless_communication/main/docs/m4t/README.md
-                def run_s2st(
-                    input_audio: str, source_language: str, target_language: str
-                ) -> tuple[tuple[int, np.ndarray] | None, str]:
-                    # import torchaudio
-                    preprocess_audio(input_audio)
-                    source_language_code = LANGUAGE_NAME_TO_CODE[source_language]
-                    target_language_code = LANGUAGE_NAME_TO_CODE[target_language]
-                    out_texts, out_audios = translator.predict(
-                        input=input_audio,
-                        task_str="S2ST",
-                        src_lang=source_language_code,
-                        tgt_lang=target_language_code,
-                    )
-                    out_text = str(out_texts[0])
-                   
-                    unique_filename = str(uuid.uuid4())  # Generate a UUID and convert it to a string
-                    file_extension = ".wav"  # Replace with the desired file extension
-                    file_path = os.path.join("./", unique_filename + file_extension)
-                    import scipy
-                    audio_array = out_audios.audio_wavs[0].cpu().detach().numpy().squeeze()
-                    audio_array /=1.414
-                    audio_array *= 32767
-                    audio_array = audio_array.astype(np.int16)
-                    scipy.io.wavfile.write(file_path, rate=out_audios.sample_rate, data=audio_array)
-                    # self.upload_raw_file(file_path, project_id, token)
-                    # # Save the translated audio generation.
-                    # torchaudio.save(
-                    #     file_path,
-                    #      out_audios.audio_wavs[0][0].cpu(),
-                    #     sample_rate=out_audios.sample_rate
-                    # )
-                    print(f"file_path:{file_path} out_text:{out_text}")
-                    return file_path, out_text #(int(AUDIO_SAMPLE_RATE), out_wav)
-
-
-                def run_s2tt(input_audio: str, source_language: str, target_language: str) -> str:
-                    preprocess_audio(input_audio)
-                    source_language_code = LANGUAGE_NAME_TO_CODE[source_language]
-                    target_language_code = LANGUAGE_NAME_TO_CODE[target_language]
-                    out_texts, _ = translator.predict(
-                        input=input_audio,
-                        task_str="S2TT",
-                        src_lang=source_language_code,
-                        tgt_lang=target_language_code,
-                    )
-                    return str(out_texts[0])
-
-
-                def run_t2st(input_text: str, source_language: str, target_language: str) -> tuple[tuple[int, np.ndarray] | None, str]:
-                    # import torchaudio
-                    source_language_code = LANGUAGE_NAME_TO_CODE[source_language]
-                    target_language_code = LANGUAGE_NAME_TO_CODE[target_language]
-                    
-                    out_texts, out_audios = translator.predict(
-                        input=input_text,
-                        task_str="T2ST",
-                        src_lang=source_language_code,
-                        tgt_lang=target_language_code
-                    )
-                    out_text = str(out_texts[0])
-                    # out_wav = out_audios.audio_wavs[0].cpu().detach().numpy()
-                    # return (int(AUDIO_SAMPLE_RATE), out_wav), out_text
-              
-                    unique_filename = str(uuid.uuid4())  # Generate a UUID and convert it to a string
-                    file_extension = ".wav"  # Replace with the desired file extension
-                    file_path = os.path.join("./", unique_filename + file_extension)
-                    import scipy
-                    audio_array = out_audios.audio_wavs[0].cpu().detach().numpy().squeeze()
-                    audio_array /=1.414
-                    audio_array *= 32767
-                    audio_array = audio_array.astype(np.int16)
-                    scipy.io.wavfile.write(file_path, rate=out_audios.sample_rate, data=audio_array)
-                    # self.upload_raw_file(file_path, project_id, token)
-                    # # Save the translated audio generation.
-                    # torchaudio.save(
-                    #     file_path,
-                    #      out_audios.audio_wavs[0][0].cpu(),
-                    #     sample_rate=out_audios.sample_rate
-                    # )
-                    return file_path, out_text #(int(AUDIO_SAMPLE_RATE), out_wav)
-
-
-                def run_t2tt(input_text: str, source_language: str, target_language: str) -> str:
-                    source_language_code = LANGUAGE_NAME_TO_CODE[source_language]
-                    target_language_code = LANGUAGE_NAME_TO_CODE[target_language]
-                    out_texts, _ =  translator.predict(
-                        input=input_text,
-                        task_str="T2TT",
-                        src_lang=source_language_code,
-                        tgt_lang=target_language_code,
-                    )
-                    return str(out_texts[0])
-
-
-                def run_asr(input_audio: str, target_language: str) -> str:
-                    preprocess_audio(input_audio)
-                    target_language_code = LANGUAGE_NAME_TO_CODE[target_language]
-                    out_texts, _ =  translator.predict(
-                        input=input_audio,
-                        task_str="ASR",
-                        src_lang=target_language_code,
-                        tgt_lang=target_language_code,
-                    )
-                    return str(out_texts[0])
-# {
-#   "command": "predict",
-#   "params": {
-#     "source":"[ngôn ngử nguồn]",
-#     "target":"[ngôn ngử đích]",
-#     "prompt": "",
-#     "model_id": "",<= thay đổi ở đây FE hardcode vào
-#     "token_lenght": 50,
-#     "task": "translation",
-#     "text": "[nội dung texxt nếu có]",
-#     "max_gen_len":1024, 
-#     "temperature":0.9, 
-#     "top_p":0.5, 
-#     "seed":0
-#   },
-#   "project": "215"
-# } 
+            else:
+                input_audio = None
+            
+            def wav_to_base64(wav_tensor, sample_rate=24000):
+                # Nếu là PyTorch tensor, chuyển sang NumPy
+                if isinstance(wav_tensor, torch.Tensor):
+                    wav_tensor = wav_tensor.squeeze().cpu().numpy()
                 
-                if len(voice)>0:
-                    
-                    audio_file = decode_base64_to_audio(voice["data"])
-                    file_path = "unity_on_device.ptl"
+                # Chuẩn hóa về [-1, 1] nếu cần
+                if wav_tensor.dtype != np.int16:
+                    wav_tensor = np.clip(wav_tensor, -1, 1)
+                    wav_tensor = (wav_tensor * 32767).astype(np.int16)
 
-                    if not os.path.exists(file_path):
-                        url = "https://huggingface.co/facebook/seamless-m4t-unity-small/resolve/main/unity_on_device.ptl"
-                        response = requests.get(url)
+                # Ghi vào buffer
+                buffer = io.BytesIO()
+                write(buffer, sample_rate, wav_tensor)
+                buffer.seek(0)
 
-                        # Lưu file
-                        with open(file_path, "wb") as f:
-                            f.write(response.content)
-                    # import torchaudio
-                    audio_input, _ = torchaudio.load(audio_file) # Load waveform using torchaudio
+                # Encode base64
+                audio_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+                return audio_base64
 
-                    s2st_model = torch.jit.load(file_path)
+            predictions = []
+            base64_output = []
+            generated_url=""
+            generated_text=""
 
-                    with torch.no_grad():
-                        prompt, units, waveform = s2st_model(audio_input, tgt_lang="eng")
+            if input_audio:
+                refs = styletts2importable.compute_style(input_audio)
+                wav = styletts2importable.inference(prompt, refs, alpha=alpha, beta=beta, diffusion_steps=diffusion_steps, embedding_scale=embscale)
+            else:
+                noise = torch.randn(1,1,256).to('cuda' if torch.cuda.is_available() else 'cpu')
+                wav = ljspeechimportable.inference(prompt, noise, diffusion_steps=diffusion_steps, embedding_scale=1)
 
-                predictions = []
-                base64_output = []
-                generated_url=""
-                generated_text=""
-# speech-to-speech-translation (S2ST)
-# speech-to-text-translation (S2TT)
-# text-to-speech-translation (T2ST)
-# text-to-text-translation (T2TT)
-# automatic-speech-recognition (ASR).
-                # input_audio= video_path #decode_base64_to_audio(base64_audio=data,output_file="input.wav")
-                if task == "speech-to-speech-translation":
-                    audio_path,result_text = run_s2st(input_audio=input_audio,source_language=source_language,target_language=target_language)
-                    import base64
-                    from io import BytesIO
-                    with open(audio_path, "rb") as fh:
-                        buffer = BytesIO(fh.read())
-                    buffer.seek(0)
-                    base64_output = base64.b64encode(buffer.getvalue()).decode('utf-8')
-                    generated_text = result_text
-                    generated_url = f"/downloads?path={audio_path}"
-                elif task == "speech-to-text-translation":
-                    result = run_s2tt(input_audio=input_audio, source_language=source_language,target_language=target_language)
-                    generated_text = result
+            audio_base64 = wav_to_base64(wav)
+            predictions.append({
+                'result': [{
+                    'from_name': "generated_text",
+                    'to_name': "text_output", #audio
+                    'type': 'textarea',
+                    'value': {
+                        'data': audio_base64,
+                        "url": generated_url, 
+                        'text': audio_base64
+                    }
+                }],
+                'model_version': ""
+            })
+            print(predictions)
+            return {"message": "predict completed successfully", "result": predictions}
 
-                elif task == "text-to-speech-translation":
-                    audio_path,result_text = run_t2st ( input_text=text,source_language=source_language,target_language=target_language)
-                    import base64
-                    from io import BytesIO
-                    with open(audio_path, "rb") as fh:
-                        buffer = BytesIO(fh.read())
-                    buffer.seek(0)
-                    base64_output = base64.b64encode(buffer.getvalue()).decode('utf-8')
-                    generated_text = result_text
-                    generated_url = f"/downloads?path={audio_path}"
-                elif task == "text-to-text-translation":
-                   
-                    result = run_t2tt ( input_text=text,source_language=source_language,target_language=target_language)
-                    generated_text = result
-
-                elif task == "automatic-speech-recognition":
-                    result = run_asr(input_audio=input_audio,target_language=target_language)
-                    generated_text = result
-                elif task == "automatic-speech-recognition-segment":
-                    import math
-                    from simuleval.data.segments import SpeechSegment, EmptySegment
-                    # from seamless_communication.streaming.agents.seamless_streaming_s2st import (
-                    #     SeamlessStreamingS2STVADAgent,
-                    # )
-
-                    from simuleval.utils.arguments import cli_argument_list
-                    from simuleval import options
-
-
-                    from typing import Union, List
-                    from simuleval.data.segments import Segment, TextSegment
-                    from simuleval.agents.pipeline import TreeAgentPipeline
-                    from simuleval.agents.states import AgentStates
-
-                    import io
-                    # import json
-                    import matplotlib as mpl
-                    import matplotlib.pyplot as plt
-                    # import mmap
-                    import soundfile
-                    # import torchaudio
-                    # import torch
-
-                    from collections import defaultdict
-                    from IPython.display import Audio, display
-                    # from pathlib import Path
-                    from pydub import AudioSegment
-
-                    # from seamless_communication.inference import Translator
-                    # from seamless_communication.streaming.dataloaders.s2tt import SileroVADSilenceRemover
-
-                    SAMPLE_RATE = 44100
-
-
-                    class AudioFrontEnd:
-                        def __init__(self, wav_file, segment_size) -> None:
-                            self.samples, self.sample_rate = soundfile.read(wav_file)
-                            # self.sample_rate = SAMPLE_RATE
-                            # print(len(self.samples), self.samples[:100])
-                            # self.samples = self.samples  # .tolist()
-                            self.segment_size = segment_size
-                            self.step = 0
-
-                        def send_segment(self):
-                            """
-                            This is the front-end logic in simuleval instance.py
-                            """
-
-                            num_samples = math.ceil(self.segment_size / 1000 * self.sample_rate)
-
-                            if self.step < len(self.samples):
-                                if self.step + num_samples >= len(self.samples):
-                                    samples = self.samples[self.step :]
-                                    is_finished = True
-                                else:
-                                    samples = self.samples[self.step : self.step + num_samples]
-                                    is_finished = False
-                                self.step = min(self.step + num_samples, len(self.samples))
-
-                                segment = SpeechSegment(
-                                    content=samples,
-                                    sample_rate=self.sample_rate,
-                                    finished=is_finished,
-                                )
-                            else:
-                                # Finish reading this audio
-                                segment = EmptySegment(
-                                    finished=True,
-                                )
-                            return segment
-
-
-                    class OutputSegments:
-                        def __init__(self, segments: Union[List[Segment], Segment]):
-                            if isinstance(segments, Segment):
-                                segments = [segments]
-                            self.segments: List[Segment] = [s for s in segments]
-
-                        @property
-                        def is_empty(self):
-                            return all(segment.is_empty for segment in self.segments)
-
-                        @property
-                        def finished(self):
-                            return all(segment.finished for segment in self.segments)
-
-
-                    def get_audiosegment(samples, sr):
-                        b = io.BytesIO()
-                        soundfile.write(b, samples, samplerate=sr, format="wav")
-                        b.seek(0)
-                        return AudioSegment.from_file(b)
-
-
-                    def reset_states(system, states):
-                        if isinstance(system, TreeAgentPipeline):
-                            states_iter = states.values()
-                        else:
-                            states_iter = states
-                        for state in states_iter:
-                            state.reset()
-
-
-                    def get_states_root(system, states) -> AgentStates:
-                        if isinstance(system, TreeAgentPipeline):
-                            # self.states is a dict
-                            return states[system.source_module]
-                        else:
-                            # self.states is a list
-                            return system.states[0]
-
-
-                    def plot_s2st(source_file, target_samples, target_fs, intervals, delays, prediction_lists):
-                        mpl.rcParams["axes.spines.left"] = False
-                        mpl.rcParams["axes.spines.right"] = False
-                        mpl.rcParams["axes.spines.top"] = False
-                        mpl.rcParams["axes.spines.bottom"] = False
-
-                        source_samples, source_fs = soundfile.read(source_file)
-
-                        _, axes = plt.subplots(5, sharex=True, figsize=(25, 5))
-                        for ax in axes:
-                            ax.set_yticks([])
-
-                        axes[0].plot(
-                            np.linspace(0, len(source_samples) / source_fs, len(source_samples)),
-                            source_samples,
-                        )
-
-                        axes[1].plot(
-                            np.linspace(0, len(target_samples) / target_fs, len(target_samples)),
-                            target_samples,
-                        )
-
-                        start = 0
-                        for seg_index in range(len(intervals)):
-                            start, duration = intervals[seg_index]
-                            offset = delays["s2st"][seg_index]
-
-                            samples = target_samples[
-                                int((start) / 1000 * target_fs) : int(
-                                    (start + duration) / 1000 * target_fs
-                                )
-                            ]
-
-                            # Uncomment this if you want to see the segments without speech playback delay
-                            axes[2].plot(
-                                offset / 1000 + np.linspace(0, len(samples) / target_fs, len(samples)),
-                                -seg_index * 0.05 + np.array(samples),
-                            )
-                            axes[4].plot(
-                                start / 1000 + np.linspace(0, len(samples) / target_fs, len(samples)),
-                                np.array(samples),
-                            )
-
-                        from pydub import AudioSegment
-                        print("Output translation (without input)")
-                        # display(Audio(target_samples, rate=target_fs))
-                        print("Output translation (overlay with input)")
-                        source_seg = get_audiosegment(source_samples, source_fs) + AudioSegment.silent(duration=3000)
-                        target_seg = get_audiosegment(target_samples, target_fs)
-                        output_seg = source_seg.overlay(target_seg)
-                        # display(output_seg)
-
-                        delay_token = defaultdict(list)
-                        d = delays["s2tt"][0]
-                        for token, delay in zip(prediction_lists["s2tt"], delays["s2tt"]):
-                            if delay != d:
-                                d = delay
-                            delay_token[d].append(token)
-                        for key, value in delay_token.items():
-                            axes[3].text(
-                                key / 1000, 0.2, " ".join(value), rotation=40
-                            )
-
-                    def build_streaming_system(model_configs, agent_class):
-                        parser = options.general_parser()
-                        parser.add_argument("-f", "--f", help="a dummy argument to fool ipython", default="1")
-
-                        agent_class.add_args(parser)
-                        args, _ = parser.parse_known_args(cli_argument_list(model_configs))
-                        system = agent_class.from_args(args)
-                        return system
-
-
-                    def run_streaming_inference(system, audio_frontend, system_states, tgt_lang):
-                        # NOTE: Here for visualization, we calculate delays offset from audio
-                        # *BEFORE* VAD segmentation.
-                        # In contrast for SimulEval evaluation, we assume audios are pre-segmented,
-                        # and Average Lagging, End Offset metrics are based on those pre-segmented audios.
-                        # Thus, delays here are *NOT* comparable to SimulEval per-segment delays
-                        delays = {"s2st": [], "s2tt": []}
-                        prediction_lists = {"s2st": [], "s2tt": []}
-                        speech_durations = []
-                        curr_delay = 0
-                        target_sample_rate = None
-
-                        while True:
-                            input_segment = audio_frontend.send_segment()
-                            input_segment.tgt_lang = tgt_lang
-                            curr_delay += len(input_segment.content) / SAMPLE_RATE * 1000
-                            if input_segment.finished:
-                                # a hack, we expect a real stream to end with silence
-                                get_states_root(system, system_states).source_finished = True
-                            # Translation happens here
-                            output_segments = OutputSegments(system.pushpop(input_segment, system_states))
-                            if not output_segments.is_empty:
-                                for segment in output_segments.segments:
-                                    # NOTE: another difference from SimulEval evaluation -
-                                    # delays are accumulated per-token
-                                    if isinstance(segment, SpeechSegment):
-                                        pred_duration = 1000 * len(segment.content) / segment.sample_rate
-                                        speech_durations.append(pred_duration)
-                                        delays["s2st"].append(curr_delay)
-                                        prediction_lists["s2st"].append(segment.content)
-                                        target_sample_rate = segment.sample_rate
-                                    elif isinstance(segment, TextSegment):
-                                        delays["s2tt"].append(curr_delay)
-                                        prediction_lists["s2tt"].append(segment.content)
-                                        print(curr_delay, segment.content)
-                            if output_segments.finished:
-                                print("End of VAD segment")
-                                reset_states(system, system_states)
-                            if input_segment.finished:
-                                # an assumption of SimulEval agents -
-                                # once source_finished=True, generate until output translation is finished
-                                # assert output_segments.finished
-                                break
-                        return delays, prediction_lists, speech_durations, target_sample_rate
-
-
-                    def get_s2st_delayed_targets(delays, target_sample_rate, prediction_lists, speech_durations):
-                        # get calculate intervals + durations for s2st
-                        intervals = []
-
-                        start = prev_end = prediction_offset = delays["s2st"][0]
-                        target_samples = [0.0] * int(target_sample_rate * prediction_offset / 1000)
-
-                        for i, delay in enumerate(delays["s2st"]):
-                            start = max(prev_end, delay)
-
-                            if start > prev_end:
-                                # Wait source speech, add discontinuity with silence
-                                target_samples += [0.0] * int(
-                                    target_sample_rate * (start - prev_end) / 1000
-                                )
-
-                            target_samples += prediction_lists["s2st"][i]
-                            duration = speech_durations[i]
-                            prev_end = start + duration
-                            intervals.append([start, duration])
-                        return target_samples, intervals
-                    from seamless_communication.streaming.agents.seamless_streaming_s2st import (
-                        SeamlessStreamingS2STJointVADAgent,
-                    )
-
-
-                    print("building system from dir")
-                    agent_class = SeamlessStreamingS2STJointVADAgent
-                    target_language_code = LANGUAGE_NAME_TO_CODE[target_language]
-                    tgt_lang = target_language_code
-                    source_segment_size = 320  # milliseconds
-                    model_configs = dict(
-                        source_segment_size=source_segment_size,
-                        device=device,
-                        dtype="fp16",
-                        min_starting_wait_w2vbert=192,
-                        decision_threshold=0.5,
-                        min_unit_chunk_size=50,
-                        no_early_stop=True,
-                        max_len_a=0,
-                        max_len_b=100,
-                        task="s2st",
-                        tgt_lang=tgt_lang,
-                        block_ngrams=True,
-                        detokenize_only=True,
-                    )
-                    system = build_streaming_system(model_configs, agent_class)
-                    print("finished building system")
-                    
-                    audio_frontend = AudioFrontEnd(
-                        wav_file=input_audio,
-                        segment_size=source_segment_size,
-                    )
-
-                    system_states = system.build_states()
-
-                    # you can pass tgt_lang at inference time to change the output lang.
-                    # SeamlessStreaming supports 36 speech output languages, see https://github.com/facebookresearch/seamless_communication/blob/main/docs/m4t/README.md#supported-languages
-                    # in the Target column for `Sp` outputs.
-                    delays, prediction_lists, speech_durations, target_sample_rate = run_streaming_inference(
-                        system, audio_frontend, system_states, tgt_lang
-                    )
-                    # result = run_asr(input_audio=input_audio,target_language=target_language)
-                    generated_text = prediction_lists
-                    base64_output = speech_durations
-                     
-# {
-#     'result': [{
-#         'from_name': "generated_text",
-#         'to_name': "text_output", 
-#         'type': 'textarea',
-#         'value': [
-#             {
-#                 "id": segment_id,
-#                 "meta": {
-#                     "text": [
-#                         f"{file_name},{format_name},{bit_rate},{_channel},{duration},{folder_name}" 
-#                     ]
-#                 },
-#                 "type": "textarea",
-#                 "value": {
-#                     "end":  segment_end,
-#                     "text": [
-#                         "text"
-#                     ],
-#                     "start": segment_start
-#                 },
-#                 "origin": "manual",
-#                 "to_name": "audio",
-#                 "from_name": "transcription",
-#                 "original_length": duration
-#             }
-#         ]
-#     }],
-#     'model_version': ""
-# }
-                else:
-                    raise ValueError(f"Task type '{task}' not supported")
-                
-                predictions.append({
-                    'result': [{
-                        'from_name': "generated_text",
-                        'to_name': "text_output", #audio
-                        'type': 'textarea',
-                        'value': {
-                            'data': base64_output,
-                            "url": generated_url, 
-                            'text': generated_text
-                        }
-                    }],
-                    'model_version': ""
-                })
-                print(predictions)
-                return {"message": "predict completed successfully", "result": predictions}
-            # except Exception as e:
-            #     print(e)
-            #     return {"message": "predict failed", "result": None}
         
         elif command.lower() == "prompt_sample":
                 task = kwargs.get("task", "")
