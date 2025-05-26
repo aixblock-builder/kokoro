@@ -1,3 +1,6 @@
+from load_model import load_model
+load_model()
+
 import os
 import uuid
 
@@ -33,9 +36,7 @@ from tqdm import tqdm
 import tarfile
 import shutil
 import yaml
-from load_model import load_model
 
-load_model()
 
 hf_token = os.getenv("HF_TOKEN", "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")
 HfFolder.save_token(hf_token)
