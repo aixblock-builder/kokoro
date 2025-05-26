@@ -1,101 +1,71 @@
-#model_marketplace.config
-# {"token_length": "4018", "accuracy": "70", "precision": "fp16", "sampling_frequency:": "44100", "mono": true, "fps": "74", "resolution": "480", "image_width": "1080", "image_height": "1920", "framework": "transformers", "dataset_format": "llm", "dataset_sample": "[id on s3]", "weights": [
-#     {
-#       "name": "DeepSeek-V3",
-#       "value": "deepseek-ai/DeepSeek-V3",
-#       "size": 20,
-#       "paramasters": "685B",
-#       "tflops": 14, 
-#       "vram": 20,
-#       "nodes": 10
-#     },
-# {
-#       "name": "DeepSeek-V3-bf16",
-#       "value": "opensourcerelease/DeepSeek-V3-bf16",
-#       "size": 1500,
-#       "paramasters": "684B",
-#       "tflops": 80, 
-#       "vram": 48,
-#       "nodes": 10
-#     }
-#   ], "cuda": "11.4", "task":["text-generation", "text-classification", "text-summarization", "text-ner", "question-answering"]}
-import os
-from typing import List, Dict, Optional
-import uuid
-# from label_studio_ml.model import LabelStudioMLBase
-# from label_studio_ml.response import ModelResponse
-# from transformers import pipeline
-import torch
-# https://gitee.com/hf-models/seamless-m4t-v2-large?skip_mobile=true
-# from transformers import AutoProcessor, SeamlessM4Tv2Model
-import torchaudio
+try:
+    import os
+    import uuid
 
-from typing import List, Dict, Optional
-from aixblock_ml.model import AIxBlockMLBase
-import torch.distributed as dist
-import torch
-import subprocess
-import json
-import subprocess
-import threading
-import requests
-# from dashboard import promethus_grafana
-from loguru import logger
-import numpy as np
-from function_ml import connect_project, download_dataset, upload_checkpoint
-from logging_class import start_queue, write_log
-# from prompt import qa_without_context
-import time
-from mcp.server.fastmcp import FastMCP
-import zipfile
-from huggingface_hub import (
-    HfFolder, 
-    login,
-    whoami,
-    ModelCard,
-    upload_file,
-    create_repo
-)
-import styletts2importable
-import ljspeechimportable
-import io
-from scipy.io.wavfile import write
-import base64
-import numpy as np
-from tqdm import tqdm
-import tarfile
-import shutil
-import yaml
+    import torch
+    from aixblock_ml.model import AIxBlockMLBase
+    import torch
+    import subprocess
+    import json
+    import threading
+    import requests
+    from loguru import logger
+    import numpy as np
+    from function_ml import connect_project, download_dataset, upload_checkpoint
+    from logging_class import start_queue, write_log
+    import time
+    from mcp.server.fastmcp import FastMCP
+    import zipfile
+    from huggingface_hub import (
+        HfFolder, 
+        login,
+        whoami,
+        ModelCard,
+        upload_file,
+        create_repo
+    )
+    import styletts2importable
+    import ljspeechimportable
+    import io
+    from scipy.io.wavfile import write
+    import base64
+    import numpy as np
+    from tqdm import tqdm
+    import tarfile
+    import shutil
+    import yaml
 
-hf_token = os.getenv("HF_TOKEN", "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")
-HfFolder.save_token(hf_token)
+    hf_token = os.getenv("HF_TOKEN", "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")
+    HfFolder.save_token(hf_token)
 
 
-hf_access_token = "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"
-login(token=hf_access_token)
-CUDA_VISIBLE_DEVICES = []
-for i in range(torch.cuda.device_count()):
-    CUDA_VISIBLE_DEVICES.append(i)
-os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
-    f"{i}" for i in range(len(CUDA_VISIBLE_DEVICES))
-)
-print(os.environ["CUDA_VISIBLE_DEVICES"])
+    hf_access_token = "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"
+    login(token=hf_access_token)
+    CUDA_VISIBLE_DEVICES = []
+    for i in range(torch.cuda.device_count()):
+        CUDA_VISIBLE_DEVICES.append(i)
+    os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
+        f"{i}" for i in range(len(CUDA_VISIBLE_DEVICES))
+    )
+    print(os.environ["CUDA_VISIBLE_DEVICES"])
 
 
-HOST_NAME = os.environ.get("HOST_NAME", "https://dev-us-west-1.aixblock.io")
-TYPE_ENV = os.environ.get("TYPE_ENV", "DETECTION")
+    HOST_NAME = os.environ.get("HOST_NAME", "https://dev-us-west-1.aixblock.io")
+    TYPE_ENV = os.environ.get("TYPE_ENV", "DETECTION")
 
 
-mcp = FastMCP("aixblock-mcp")
+    mcp = FastMCP("aixblock-mcp")
 
-CHANNEL_STATUS = {}
+    CHANNEL_STATUS = {}
 
-if torch.cuda.is_available():
-    device = torch.device("cuda:0")
-    dtype = torch.float16
-else:
-    device = torch.device("cpu")
-    dtype = torch.float32
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")
+        dtype = torch.float16
+    else:
+        device = torch.device("cpu")
+        dtype = torch.float32
+except ImportError as e:
+    print(f"❌ Import failed: {e}")
 
 class MyModel(AIxBlockMLBase):
     @mcp.tool()
