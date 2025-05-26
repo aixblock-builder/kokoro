@@ -24,6 +24,7 @@ from huggingface_hub import (
     whoami,
     ModelCard,
     upload_file,
+    upload_folder,
     create_repo
 )
 import styletts2importable
@@ -122,7 +123,7 @@ class MyModel(AIxBlockMLBase):
                 input_field = kwargs.get("input_field", "task_description")
                 output_field = kwargs.get("output_field", "response")
                 log_queue, logging_thread = start_queue(channel_log)
-                epoch = kwargs.get("epoch", 1)
+                epoch = kwargs.get("epoch", 5)
                 batch_size = kwargs.get("batch_size", 1)
                 write_log(log_queue)
                 channel_name = f"{hf_model_id}_{str(uuid.uuid4())[:8]}"
@@ -260,22 +261,20 @@ class MyModel(AIxBlockMLBase):
                         print_dir_tree("Data")
 
 
-                    make_dir = os.path.join(os.getcwd(), "checkpoints")
+                    make_dir = os.path.join(os.getcwd(), "checkpoint")
                     os.makedirs(make_dir, exist_ok=True)
-                    subprocess.run(
-                        ("whereis accelerate"),
-                        shell=True,
-                    )
+                    # subprocess.run(
+                    #     ("whereis accelerate"),
+                    #     shell=True,
+                    # )
                     config_path = "Configs/config_ft.yml"
                     config = yaml.safe_load(open(config_path))
 
                     logger.info("===Train===")
 
-                    config['batch_size'] = batch_size
                     config['max_len'] = 100 # not enough RAM
-                    config['loss_params']['joint_epoch'] = 110 # we do not do SLM adversarial training due to not enough RAM
+                    config['loss_params']['joint_epoch'] = 110 
                     config['epochs'] = epoch
-                    config['pretrained_model'] = "Models/StyleTTS2-LibriTTS/LibriTTS/epochs_2nd_00020.pth"
 
                     logger.info(f"Config: {config}")
                     try:
@@ -285,9 +284,6 @@ class MyModel(AIxBlockMLBase):
                         ], check=True)
                     except Exception as e:
                         logger.error(f"Lỗi khi train model: {e}")
-
-                                        
-                    checkpoint_path = os.path.join(make_dir, "checkpoint.pt")
 
                     user = whoami(token=push_to_hub_token)['name']
                     repo_id = f"{user}/{hf_model_id}"
@@ -353,20 +349,10 @@ class MyModel(AIxBlockMLBase):
                     else:
                         tokenizer_model_path = fallback_path
 
-                    print("✅ Dùng tokenizer tại:", tokenizer_model_path)
-
-                    upload_file(
-                        path_or_fileobj=tokenizer_model_path,
-                        path_in_repo="tokenizer.model",
-                        repo_id=repo_id,
-                        token=push_to_hub_token,
-                        commit_message="Upload tokenizer"
-                    )
-
                     # ✅ Upload checkpoint (đặt tên chuẩn theo Transformers nếu có thể)
-                    upload_file(
-                        path_or_fileobj=checkpoint_path,
-                        path_in_repo="seamlessM4T_medium.pt",
+                    upload_folder(
+                        folder_path=make_dir,
+                        path_in_repo="checkpoint",
                         repo_id=repo_id,
                         token=push_to_hub_token,
                         commit_message="Upload fine-tuned checkpoint"
