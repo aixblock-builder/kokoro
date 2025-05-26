@@ -267,11 +267,14 @@ class MyModel(AIxBlockMLBase):
                         # Di chuyển thư mục wavs
                         if os.path.exists(wavs_dst):
                             shutil.rmtree(wavs_dst)
-
+                        
+                        logger.info(f"Đang di chuyển thư mục wavs từ {wavs_src} đến {wavs_dst}")
                         shutil.move(wavs_src, wavs_dst)
+                        logger.info(f"Đã di chuyển thư mục wavs từ {wavs_src} đến {wavs_dst}")
 
                         config_path = "Configs/config_ft.yml"
                         config = yaml.safe_load(open(config_path))
+                        logger.info(f"Config: {config}")
 
 
                     make_dir = os.path.join(os.getcwd(), "checkpoints")
@@ -280,7 +283,7 @@ class MyModel(AIxBlockMLBase):
                         ("whereis accelerate"),
                         shell=True,
                     )
-                    print("===Train===")
+                    logger.info("===Train===")
 
                     config['data_params']['root_path'] = "Data/wavs"
 
@@ -304,10 +307,13 @@ class MyModel(AIxBlockMLBase):
                             "--save_model_to", f"{make_dir}/checkpoint.pt"
                         ], check=True)
 
-                    subprocess.run([
-                        "venv/bin/python", "train_finetune.py",
-                        "--config_path", "./Configs/config_ft.yml"
-                    ], check=True)
+                    try:
+                        subprocess.run([
+                            "venv/bin/python", "train_finetune.py",
+                            "--config_path", "./Configs/config_ft.yml"
+                        ], check=True)
+                    except Exception as e:
+                        logger.error(f"Lỗi khi train model: {e}")
 
                                         
                     checkpoint_path = os.path.join(make_dir, "checkpoint.pt")
