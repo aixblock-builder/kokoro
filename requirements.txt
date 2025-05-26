@@ -1,6 +1,6 @@
-transformers
-accelerate>=0.31.0
-bitsandbytes>=0.41.3
+transformers==4.52.3
+accelerate==1.7.0
+bitsandbytes==0.42.0
 prometheus-client
 aixblock-ml
 aixblock-sdk
@@ -17,14 +17,14 @@ colorama
 lxml
 appdirs
 gitpython
-centrifuge-python
+# centrifuge-python
 # opencv-python>=4.1.1
 grafana-api
 # diffusers
 simuleval
 # gitpython
 ipython
-nvidia-ml-py
+# nvidia-ml-py
 wandb
 # langchain
 # langchain_huggingface
