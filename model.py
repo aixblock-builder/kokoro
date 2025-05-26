@@ -33,6 +33,9 @@ from tqdm import tqdm
 import tarfile
 import shutil
 import yaml
+from load_model import load_model
+
+load_model()
 
 hf_token = os.getenv("HF_TOKEN", "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")
 HfFolder.save_token(hf_token)
@@ -255,7 +258,7 @@ class MyModel(AIxBlockMLBase):
                     config['max_len'] = 100 # not enough RAM
                     config['loss_params']['joint_epoch'] = 110 # we do not do SLM adversarial training due to not enough RAM
                     config['epochs'] = epoch
-                    config['pretrained_model'] = "/app/Models/StyleTTS2-LibriTTS/LibriTTS/epochs_2nd_00020.pth"
+                    config['pretrained_model'] = "Models/StyleTTS2-LibriTTS/LibriTTS/epochs_2nd_00020.pth"
 
                     logger.info(f"Config: {config}")
                     try:
