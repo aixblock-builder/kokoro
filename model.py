@@ -44,7 +44,7 @@ from loguru import logger
 import numpy as np
 from function_ml import connect_project, download_dataset, upload_checkpoint
 from logging_class import start_queue, write_log
-from prompt import qa_without_context
+# from prompt import qa_without_context
 import time
 from mcp.server.fastmcp import FastMCP
 import zipfile
