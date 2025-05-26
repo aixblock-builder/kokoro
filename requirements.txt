@@ -18,7 +18,7 @@ lxml
 appdirs
 gitpython
 centrifuge-python
-opencv-python
+opencv-python>=4.1.1
 grafana-api
 # diffusers
 simuleval
