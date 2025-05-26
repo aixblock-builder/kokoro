@@ -243,6 +243,22 @@ class MyModel(AIxBlockMLBase):
                         shutil.move(wavs_src, wavs_dst)
                         logger.info(f"Đã di chuyển thư mục wavs từ {wavs_src} đến {wavs_dst}")
 
+                        def print_dir_tree(start_path):
+                            total_files = 0
+                            print(f"\n📁 Cấu trúc thư mục: {start_path}")
+                            for root, dirs, files in os.walk(start_path):
+                                level = root.replace(start_path, '').count(os.sep)
+                                indent = '    ' * level
+                                print(f"{indent}- 📂 {os.path.basename(root)}")
+                                subindent = '    ' * (level + 1)
+                                for f in files:
+                                    print(f"{subindent}- 📄 {f}")
+                                    total_files += 1
+                            print(f"\n📊 Tổng số file: {total_files}")
+
+                        # Gọi sau khi di chuyển wavs
+                        print_dir_tree("Data")
+
 
                     make_dir = os.path.join(os.getcwd(), "checkpoints")
                     os.makedirs(make_dir, exist_ok=True)
