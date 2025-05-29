@@ -2,6 +2,14 @@ import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
+
+current_file_path = Path(__file__).resolve()
+current_dir = current_file_path.parent
+print(f"Đường dẫn file đang chạy: {current_file_path}")
+print(f"Thư mục chứa file: {current_dir}")
+original_cwd = Path.cwd()
+os.chdir(current_dir)
 
 def load_model():
     def install_git_lfs():
@@ -78,3 +86,6 @@ def load_model():
 
     # In toàn bộ nội dung Models
     print_models_tree(MODELS_DIR)
+
+load_model()
+os.chdir(original_cwd)
