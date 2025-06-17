@@ -451,7 +451,7 @@ class MyModel(AIxBlockMLBase):
 
                 # Encode base64
                 audio_base64 = base64.b64encode(buffer.read()).decode('utf-8')
-                return f"data:audio/wav;base64,{audio_base64}"
+                return audio_base64
 
             predictions = []
             base64_output = []
@@ -459,7 +459,7 @@ class MyModel(AIxBlockMLBase):
             generated_url=""
             generated_text=""
             
-            if raw_input: 
+            if raw_input and raw_input != '[]': 
                 input_datas = json.loads(raw_input)
                 for input_data in input_datas:
                     print(input_data)
