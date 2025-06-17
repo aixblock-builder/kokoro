@@ -403,15 +403,19 @@ class MyModel(AIxBlockMLBase):
             raw_input = kwargs.get("input", None)
             
             def decode_base64_to_audio(base64_audio, output_file="output.wav"):
-                # Giải mã Base64 thành nhị phân
-                import base64
-                # import os  
+                if "," in base64_audio:
+                    base64_audio = base64_audio.split(",", 1)[1]
+
+                missing_padding = len(base64_audio) % 4
+                if missing_padding:
+                    base64_audio += "=" * (4 - missing_padding)
+
                 file_path = os.path.join(os.path.dirname(__file__), output_file)
+
                 audio_data = base64.b64decode(base64_audio)
-                
-                # Ghi dữ liệu nhị phân vào file âm thanh
                 with open(file_path, "wb") as audio_file:
                     audio_file.write(audio_data)
+
                 return file_path
 
             def download_audio(audio_url, save_path):
@@ -458,6 +462,7 @@ class MyModel(AIxBlockMLBase):
             if raw_input: 
                 input_datas = json.loads(raw_input)
                 for input_data in input_datas:
+                    print(input_data)
                     if "http://" in input_data["data"] or "https://" in input_data["data"]:
                         input_audio= download_audio(input_data["data"],"audio.wav")
                     else:
@@ -484,7 +489,7 @@ class MyModel(AIxBlockMLBase):
                     'to_name': "text_output", #audio
                     'type': 'textarea',
                     'value': {
-                        'data': audio_base64,
+                        'data': result,
                         "url": generated_url, 
                         'text': result
                     }
