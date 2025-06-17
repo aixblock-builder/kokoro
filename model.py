@@ -400,6 +400,7 @@ class MyModel(AIxBlockMLBase):
             alpha = kwargs.get("alpha", 0.3)
             beta = kwargs.get("beta", 0.7)
             embscale = kwargs.get("embscale", 1)
+            raw_input = kwargs.get("input", None)
             
             def decode_base64_to_audio(base64_audio, output_file="output.wav"):
                 # Giải mã Base64 thành nhị phân
@@ -428,15 +429,6 @@ class MyModel(AIxBlockMLBase):
                 else:
                     print(f"Failed to download audio. Status code: {response.status_code}")
                     return None
-
-            # Thay audio_url bằng URL audio thật của bạn
-            if data: 
-                if "http://" in data or "https://" in data:
-                    input_audio= download_audio(data,"audio.wav")
-                else:
-                    input_audio= decode_base64_to_audio(base64_audio=data)
-            else:
-                input_audio = None
             
             def wav_to_base64(wav_tensor, sample_rate=24000):
                 # Nếu là PyTorch tensor, chuyển sang NumPy
@@ -459,17 +451,33 @@ class MyModel(AIxBlockMLBase):
 
             predictions = []
             base64_output = []
+            result = []
             generated_url=""
             generated_text=""
+            
+            if raw_input: 
+                input_datas = json.loads(raw_input)
+                for input_data in input_datas:
+                    if "http://" in input_data["data"] or "https://" in input_data["data"]:
+                        input_audio= download_audio(input_data["data"],"audio.wav")
+                    else:
+                        input_audio= decode_base64_to_audio(base64_audio=input_data["data"])
+                
+                    refs = styletts2importable.compute_style(input_audio)
+                    wav = styletts2importable.inference(prompt, refs, alpha=alpha, beta=beta, diffusion_steps=diffusion_steps, embedding_scale=embscale)
+                    audio_base64 = wav_to_base64(wav)
 
-            if input_audio:
-                refs = styletts2importable.compute_style(input_audio)
-                wav = styletts2importable.inference(prompt, refs, alpha=alpha, beta=beta, diffusion_steps=diffusion_steps, embedding_scale=embscale)
+                    result.append({
+                        input_data["name"]: audio_base64
+                    })
+
             else:
                 noise = torch.randn(1,1,256).to('cuda' if torch.cuda.is_available() else 'cpu')
                 wav = ljspeechimportable.inference(prompt, noise, diffusion_steps=diffusion_steps, embedding_scale=1)
+                audio_base64 = wav_to_base64(wav)
+                result = audio_base64
 
-            audio_base64 = wav_to_base64(wav)
+            
             predictions.append({
                 'result': [{
                     'from_name': "generated_text",
@@ -478,7 +486,7 @@ class MyModel(AIxBlockMLBase):
                     'value': {
                         'data': audio_base64,
                         "url": generated_url, 
-                        'text': audio_base64
+                        'text': result
                     }
                 }],
                 'model_version': ""
