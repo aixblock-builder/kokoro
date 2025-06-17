@@ -480,7 +480,9 @@ class MyModel(AIxBlockMLBase):
                 noise = torch.randn(1,1,256).to('cuda' if torch.cuda.is_available() else 'cpu')
                 wav = ljspeechimportable.inference(prompt, noise, diffusion_steps=diffusion_steps, embedding_scale=1)
                 audio_base64 = wav_to_base64(wav)
-                result = audio_base64
+                result.append({
+                    "data": audio_base64
+                })
 
             
             predictions.append({
